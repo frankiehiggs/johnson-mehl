@@ -228,6 +228,7 @@ def three_times(rho,max_time=1.0,tolerance=0.000001,alpha=0.4,N_samples=1,file_p
     """
     progress = trange(N_samples)
     final_arrivals = [None]*N_samples
+    total_arrivals = [None]*N_samples
     iso_thresholds = [None]*N_samples
     coverage_times = [None]*N_samples
     for i in progress:
@@ -263,15 +264,18 @@ def three_times(rho,max_time=1.0,tolerance=0.000001,alpha=0.4,N_samples=1,file_p
             else:
                 time_lb = current_time
         final_arrivals[i] = final_arrival
+        total_arrivals[i] = len(indices)
         iso_thresholds[i] = iso_threshold
         coverage_times[i] = 0.5*(time_ub + time_lb)
     
     if file_prefix:
         save_data(f'{file_prefix}-rho{rho}-final-arrivals.csv',final_arrivals)
+        save_data(f'{file_prefix}-rho{rho}-total-arrivals.csv',total_arrivals)
         save_data(f'{file_prefix}-rho{rho}-iso-thresholds.csv',iso_thresholds)
         save_data(f'{file_prefix}-rho{rho}-coverage-times.csv',coverage_times)
     else:
         save_data(f'data/rho{rho}-final-arrivals.csv',final_arrivals)
+        save_data(f'data/rho{rho}-total-arrivals.csv',total_arrivals)
         save_data(f'data/rho{rho}-iso-thresholds.csv',iso_thresholds)
         save_data(f'data/rho{rho}-coverage-times.csv',coverage_times)
 
