@@ -12,7 +12,6 @@ import time
 from tqdm import trange
 import sys
 from numba import jit
-import gc
 
 def save_data( filename, samples ):
     f = open(filename, 'a')
@@ -21,14 +20,14 @@ def save_data( filename, samples ):
     f.close()
 
 @jit(nopython=True)
-def sample_points( sample_size ):
+def sample_points( sample_size, R=0 ):
     """
-    Chooses points uniformly in [0,1]^2.
+    Chooses points uniformly in [-R,1+R]^2
     """
-    return np.random.random(size=(sample_size,2))
+    return (1+2*R)*np.random.random(size=(sample_size,2)) - np.array([R,R])
 
-def get_arrival_times( rho, max_time=1.0 ):
-    N = rng.poisson(lam=rho*max_time)
+def get_arrival_times( rho, max_time=1.0, R=0 ):
+    N = rng.poisson(lam=rho*max_time*(1+2*R)**2)
     return np.sort(rng.uniform(low=0.0, high=max_time, size=N))
 
 @jit(nopython=True)
@@ -112,6 +111,8 @@ def find_boundary_corners(t, points, times):
     N = len(times)
     corners = []
     for i in range(N):
+        if not is_in_domain(points[i]):
+            continue
         x,y = points[i]
         r = radii[i]
         rsq = r*r
@@ -195,23 +196,22 @@ def is_covered(t, points_tree,times,d_matrix):
                 break
     return all_covered
 
-def coverage_time(rho, max_time=1.0, tolerance=0.00001, alpha=0.4):
+def coverage_time(rho, max_time=1.0, tolerance=0.00001, alpha=0.4, R=1.0):
     """
     Samples just the coverage time of the Johnson-Mehl process.
     """
-    arrival_times = get_arrival_times(rho, max_time)
-    locations = sample_points(len(arrival_times))
+    arrival_times = get_arrival_times(rho, max_time,R=R)
+    locations = sample_points(len(arrival_times),R=R)
     # Prune the arrivals (slow but reduces the number of points drastically)
     indices = prune_arrivals(arrival_times, locations)
     arrival_times = arrival_times[indices]
     locations = locations[indices,:]
     
-    d_matrix  = pdist(locations)
     #d2_matrix = euclidean_distances(locations,locations,squared=True)
     
     loc_tree = KDTree(locations)
     
-    time_lb = no_isolated_points_time(d_matrix, arrival_times)
+    time_lb = no_isolated_points_time(pdist(locations), arrival_times)
     time_ub = max_time
     alpha_prime = 1-alpha
     while time_ub - time_lb > tolerance:
@@ -222,7 +222,7 @@ def coverage_time(rho, max_time=1.0, tolerance=0.00001, alpha=0.4):
             time_lb = current_time
     return 0.5*(time_lb + time_ub)
 
-def three_times(rho,max_time=1.0,tolerance=0.000001,alpha=0.4,N_samples=1,file_prefix=None):
+def three_times(rho,max_time=1.0,tolerance=0.000001,alpha=0.4,N_samples=1,file_prefix=None,R=1.0):
     """
     Very similar to coverage_time, but outputs the final arrival time,
     the isolation threshold, and the coverage time.
@@ -234,8 +234,8 @@ def three_times(rho,max_time=1.0,tolerance=0.000001,alpha=0.4,N_samples=1,file_p
     coverage_times = [None]*N_samples
     for i in progress:
         progress.set_description('Generating arrival process')
-        arrival_times = get_arrival_times(rho, max_time)
-        locations = sample_points(len(arrival_times))
+        arrival_times = get_arrival_times(rho, max_time, R=R)
+        locations = sample_points(len(arrival_times),R=R)
         # Prune the arrivals (slow but reduces the number of points drastically)
         progress.set_description('Pruning arrivals          ')
         indices = prune_arrivals(arrival_times, locations)
@@ -270,15 +270,15 @@ def three_times(rho,max_time=1.0,tolerance=0.000001,alpha=0.4,N_samples=1,file_p
         coverage_times[i] = 0.5*(time_ub + time_lb)
     
     if file_prefix:
-        save_data(f'{file_prefix}-rho{rho}-final-arrivals.csv',final_arrivals)
-        save_data(f'{file_prefix}-rho{rho}-total-arrivals.csv',total_arrivals)
-        save_data(f'{file_prefix}-rho{rho}-iso-thresholds.csv',iso_thresholds)
-        save_data(f'{file_prefix}-rho{rho}-coverage-times.csv',coverage_times)
+        save_data(f'unconstrained-{file_prefix}-rho{rho}-final-arrivals.csv',final_arrivals)
+        save_data(f'unconstrained-{file_prefix}-rho{rho}-total-arrivals.csv',total_arrivals)
+        save_data(f'unconstrained-{file_prefix}-rho{rho}-iso-thresholds.csv',iso_thresholds)
+        save_data(f'unconstrained-{file_prefix}-rho{rho}-coverage-times.csv',coverage_times)
     else:
-        save_data(f'data/rho{rho}-final-arrivals.csv',final_arrivals)
-        save_data(f'data/rho{rho}-total-arrivals.csv',total_arrivals)
-        save_data(f'data/rho{rho}-iso-thresholds.csv',iso_thresholds)
-        save_data(f'data/rho{rho}-coverage-times.csv',coverage_times)
+        save_data(f'data/unconstrained-rho{rho}-final-arrivals.csv',final_arrivals)
+        save_data(f'data/unconstrained-rho{rho}-total-arrivals.csv',total_arrivals)
+        save_data(f'data/unconstrained-rho{rho}-iso-thresholds.csv',iso_thresholds)
+        save_data(f'data/unconstrained-rho{rho}-coverage-times.csv',coverage_times)
 
 def limit(beta):
     return np.exp( - (4*np.pi)**(-1/3)*np.exp(-beta/3) - (2*np.pi*np.pi)**(-1/3)*4*np.exp(-beta/6) )
@@ -347,7 +347,7 @@ if __name__=='__main__':
     max_time = 2*( (2*np.log(rho) + 4*np.log(np.log(rho))) / (np.pi*rho) )**(1/3)
     print(f'\nrho = {rho}, upper bound {max_time:.3f}')
     
-    three_times(rho,max_time=max_time, tolerance=0.0001,N_samples=N)
-    diagram_with_limit(rho,filename=f'data/rho{rho}-coverage-times.csv',outname=f'diagrams/diagram-rho{rho}.png')
-    
+    three_times(rho,max_time=max_time, tolerance=0.0001,N_samples=N,R=2*max_time)
+    diagram_with_limit(rho,filename=f'data/unconstrained-rho{rho}-coverage-times.csv',outname=f'diagrams/unconstrained-diagram-rho{rho}.png')
+
 
