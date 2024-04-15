@@ -29,7 +29,7 @@ def jm_diagram(colours):
     ax.set_ylim(0,1)
     ax.set_xlim(-10,40)
     ax.legend(loc='lower right')
-    ax.set_title(f'Coverage time for a Johnson-Mehl process with $\\rho=10^{int(np.log10(rho))}$')
+    ax.set_title(f'Coverage time for JM processes in $[0,1]^2$ with arrival rate $\\rho=10^{int(np.log10(rho))}$')
     ax.set_xlabel('$\\beta$')
     ax.set_ylabel('')
     fig.tight_layout()
