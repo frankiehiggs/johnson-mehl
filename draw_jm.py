@@ -171,7 +171,7 @@ def random_radii_picture(n, resolution, distribution='uniform', p1=1.0, p2=1.0, 
         # Here we can have something which only just meets the moment conditions
         rates = p2*(np.random.pareto(p1,size=n)+1)
         if p1 <= 2:
-            print("The first parameter of the Pareto distribution needs to be strictly greater than 2 so that second moments exist... we can still run the simulation, but it will be dominated by one or two massive components.")
+            print("The first parameter of the Pareto distribution needs to be strictly greater than 2 so that second moments exist... we can still run the simulation if a > 0, but it will be dominated by one or two massive components.")
             second_moment = 1
         else:
             second_moment = p1*p2**p1 / (p1 - 2)
