@@ -27,6 +27,7 @@ def sample_points( sample_size, R=0 ):
     return (1+2*R)*np.random.random(size=(sample_size,2)) - np.array([R,R])
 
 def get_arrival_times( rho, max_time=1.0, R=0 ):
+    # Note: this method is slow for large rho because of the sort.
     N = rng.poisson(lam=rho*max_time*(1+2*R)**2)
     return np.sort(rng.uniform(low=0.0, high=max_time, size=N))
 

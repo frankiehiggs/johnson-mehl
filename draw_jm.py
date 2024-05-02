@@ -11,6 +11,7 @@ import networkx
 import colorspace
 from PIL import Image, ImageColor
 import sys
+from numba import jit
 
 from unconstrained import sample_points, prune_arrivals
 
@@ -20,29 +21,42 @@ def get_arrival_times( rho, max_time=1.0, R=0 ):
 # Needs redefining because of my foolishly using a global variable (rng)
 # to define the version of this function in unconstrained.py.
 
+@jit(nopython=True)
 def get_ball_pixels(centre, radius, img_size):
     """
     Returns the indices of the pixels in the picture
     corresponding to a ball centred at a point in [0,1]^2
     of a given radius.
     Also saves the corresponding (squared) distances.
+    
+    I suspect a numpy-ish method would be faster:
+    create a 2d array containing the (squared) distance between each point in [min_i,max_i]x[min_j,max_j]
+    and v, then turn that into an array of bools which we can return along with the distances.
+    We might need to also then return (min_i, min_j) so the bool array can be aligned within the image.    
     """
-    v = (img_size-1)*centre
-    x,y = v[0], v[1]
-    r = (img_size-1)*radius
-    r2 = r*r
-    min_i = max( 0, int(x-r) )
-    max_i = min( img_size-1, int(x+r)+1 )
-    min_j = max( 0, int(y-r) )
-    max_j = min( img_size-1, int(y+r)+1 )
-    in_ball = []
-    sq_distances = []
-    for i in range(min_i, max_i+1):
-        for j in range(min_j, max_j+1):
-            d2 = (x-i)**2 + (y-j)**2
-            if d2 <= r2:
-                in_ball.append((i,j))
-                sq_distances.append(d2)
+    in_ball = [(int(x),int(x)) for x in range(0)] # Funny expression creates a "typed list" for Numba.
+    sq_distances = [np.float64(x) for x in range(0)]
+    if radius > 0:
+        v = (img_size-1)*centre
+        x,y = v[0], v[1]
+        r = (img_size-1)*radius
+        r2 = r*r
+        min_i = max( 0, int(x-r) )
+        max_i = min( img_size-1, int(x+r)+1 )
+        min_j = max( 0, int(y-r) )
+        max_j = min( img_size-1, int(y+r)+1 )
+        in_ball = []
+        sq_distances = []
+        for i in range(min_i, max_i+1):
+            dx2 = (x-i)*(x-i)
+            if dx2 > r2:
+                continue
+            w = np.sqrt( r2 - dx2 )
+            for j in range(max(int(y-w),min_j), min(int(y+w)+2,max_j+1)):
+                d2 = dx2 + (y-j)**2
+                if d2 <= r2:
+                    in_ball.append((i,j))
+                    sq_distances.append(d2)
     return in_ball, sq_distances
 
 def assign_cells( seeds, times, img_size, T=1.0 ):
@@ -51,14 +65,12 @@ def assign_cells( seeds, times, img_size, T=1.0 ):
     to their respective Johnson-Mehl cells.
     T should be a decent upper bound on the coverage time - smaller T
     means we check fewer points.
-    This is (a slightly simplified version of) Moulinec's algorithm.
-
-    To do: add a "growth speeds" version for random radii.
-    We don't have the compute a sqrt for that, so maybe I'll
-    write it as a separate function.
+    This is a modified version of Moulinec's algorithm,
+    in which we assign things which were covered by time T,
+    and leave the rest unassigned.
     """
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
-    assignments = np.empty((img_size,img_size),dtype=int)
+    assignments = np.full((img_size,img_size),-1,dtype=int) # everything uncovered is assigned to a separate class.
 
     for i in trange(len(times)):
         xi = seeds[i]
@@ -71,10 +83,11 @@ def assign_cells( seeds, times, img_size, T=1.0 ):
                 min_cov_times[ij_pair] = cov_time
     return assignments
 
+@jit(nopython=True)
 def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.empty((img_size,img_size),dtype=int)
-    for i in trange(len(rates)):
+    for i in trange(len(rates),leave=False):
         xi = seeds[i]
         gi = rates[i]
         gi2 = gi*gi
@@ -86,9 +99,9 @@ def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
                 min_cov_times[ij_pair] = cov_time2
     return assignments
 
-def get_adjacency(cell_assignments):
+def get_adjacency(cell_assignments, blanklabel=-1):
     G = networkx.Graph()
-    #G.add_nodes_from(range(cell_assignments.max()+1)) # Uncomment this to include cells with zero pixels
+    G.add_nodes_from(range(cell_assignments.max()+1)) # Uncomment this to include cells with zero pixels
     N = cell_assignments.shape[0]
     for i in range(N-1): # All columns except the last
         for j in range(N-1): # All rows except the last
@@ -98,6 +111,7 @@ def get_adjacency(cell_assignments):
     for j in range(N-1):
         G.add_edge(cell_assignments[N-1,j],cell_assignments[N-1,j+1])
     G.remove_edges_from(networkx.selfloop_edges(G)) # Not necessary for the colouring but if we want to look at the graph structure it makes it a bit cleaner.
+    G.remove_nodes_from([blanklabel]) # If there are uncovered cells, remove them from the adjacency graph.
     return G
 
 def colour_graph(G):
@@ -121,7 +135,7 @@ def colour_graph(G):
         colours[cell] = new_colour
     return colours
 
-def jm_picture(rho, resolution):
+def jm_picture(rho, resolution, tfactor=2.0):
     times = get_arrival_times(rho)
     seeds = sample_points(len(times))
     arrived = prune_arrivals(times, seeds)
@@ -129,7 +143,7 @@ def jm_picture(rho, resolution):
     times = times[arrived]
     seeds = seeds[arrived]
 
-    max_time = 2*( (2*np.log(rho) + 4*np.log(np.log(rho))) / (np.pi*rho) )**(1/3)
+    max_time = tfactor*( (2*np.log(rho) + 4*np.log(np.log(rho))) / (np.pi*rho) )**(1/3)
     I = assign_cells(seeds, times, resolution, T=max_time)
 
     cell_structure = get_adjacency(I)
@@ -146,8 +160,10 @@ def jm_picture(rho, resolution):
     N = I.shape[0]
     for i in range(N):
         for j in range(N):
-            data[i,j,:] = rgb_colours[colours[I[i,j]]]
-
+            if I[i,j] >= 0:
+                data[i,j,:] = rgb_colours[colours[I[i,j]]]
+            else:
+                data[i,j,:] = (255,255,255)
     image = Image.fromarray(data)
     image.show()
 
