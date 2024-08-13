@@ -81,7 +81,7 @@ def add_frame_metadata(im, a, m=1.0, panel_width = 840, font_size=20,dpi_factor=
     # draw.text((width+0.05*panel_width,0.15*height),"Each ball has growth rate",font_size=font_size,fill="black")
     with Image.open('latex/yi-def.PNG') as yi_def:
         expanded_im.paste(yi_def,(int(width+0.03*panel_width),int(0.12*height)))
-    create_latex(a,f'temp{a:.3f}',dpi_factor) # Make this conditional on the file not already existing.
+    create_latex(a,f'temp{a:.3f}',dpi_factor) # If the file exists it loads it, otherwise it makes it.
     with Image.open(f'latex/temp{a:.3f}.png') as moments:
         expanded_im.paste(moments,(int(width+0.03*panel_width),int(0.35*height)))
     # draw.text((width+0.5*panel_width,0.2*height),f'a = {a:.4f}', fill="black",font_size=font_size)
@@ -133,7 +133,7 @@ if __name__=='__main__':
         
     print("Calculating adjacency structure of the cells (this is the slowest step)...")
     ## Parallel processing
-    graphs = process_map(getgraphs,exponents,max_workers=PARALLEL, leave=False)
+    graphs = process_map(getgraphs,exponents,max_workers=PARALLEL, leave=True)
     supG = graphs[0]
     for i in range(1,len(graphs)):
         supG.update(graphs[i])
