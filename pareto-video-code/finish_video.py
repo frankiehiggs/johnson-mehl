@@ -11,6 +11,7 @@ from pdf2image import convert_from_path
 from multiprocessing import Pool
 from numba import jit
 import os
+import json
 
 from unconstrained import sample_points
 from draw_jm import get_adjacency, colour_graph, get_ball_pixels#, assign_cells_random_radii
@@ -28,7 +29,9 @@ if __name__=='__main__':
     PARALLEL = int(sys.argv[3])
     
     # Load in the seeds, locations and colours
-    seeds, U = np.load('samples.npz')
+    with np.load('samples.npz') as data:
+        seeds = data['seeds']
+        U = data['U']
     def keystoint(x):
         return {int(k):v for k, v in x} # Convert keys from str to int.
     with open('colouring.json','r') as colfile:
@@ -40,6 +43,8 @@ if __name__=='__main__':
     hex_colours = c(max(colours.values())+1)
     rgb_colours = [ImageColor.getcolor(col,"RGB") for col in hex_colours]
     print("Drawing the frames.")
+
+    max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
 
     def makeframe(i):
         a = exponents[i]
@@ -59,7 +64,7 @@ if __name__=='__main__':
             image.save(fileprefix+f'{str(i).zfill(6)}.png')
         return
 
-    process_map(makeframe, range(len(exponents)), max_workers=PARALLEL, leave=False)
+    process_map(makeframe, range(len(exponents)), max_workers=PARALLEL, leave=True)
     
     # for i in trange(len(exponents),leave=False):
     #     a = exponents[i]
