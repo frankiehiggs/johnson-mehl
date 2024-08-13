@@ -1,0 +1,60 @@
+Description for Youtube:
+
+Coverage by discs with heavy-tailed random radii
+
+Place N points uniformly at random in the square of side length 1.
+For each point x_i, choose a random growth rate Y_i, where the Ys are independent
+and identically distributed according to a heavy-tailed distribution.
+Then grow discs centred at each of your N points,
+with the disc centred at x_i growing at rate Y_i.
+Wait until the discs cover all of the square,
+and colour each point according to which disc first reached it.
+
+If the distribution of Y_i is extremely heavy-tailed then one of the growth rates
+is so much bigger than the rest that the majority of the square is covered by a single disc.
+
+In the video we start with a Pareto distribution with shape parameter 3,
+so it has 2.99th moments, but not 3rd moments. This is somewhat heavy-tailed,
+but we can see from the video that there is no single disc covering most of the square.
+Then as the video progresses we make the distribution more and more heavy-tailed,
+until the second moment is infinity, then the first moment, and we end with shape
+parameter around 0.2, when one disc covers almost everything.
+
+LINK TO PAPER
+
+--
+
+Remark for the paper on the Pareto radii:
+
+A series of videos demonstrating Theorem~\ref{RANDOMRADII}
+can be viewed at \href{https://www.youtube.com/playlist?list=PLiaV5rk6Gk7qEXpLOU7FSvN4b8dy1_GJn}.
+In the video, each frame is a picture of $[0,1]^2$
+with each $x \in [0,1]^2$ assigned a colour
+based on $\argmin_i \inf\{t \geq 0 : x \in B(p_i,t Y_i)\}$.
+FIX NOTATION
+The $Y_i$s are Pareto distributed, so have a heavy tail.
+As the video progresses, the tail becomes heavier,
+with the growth rates in subsequent frames coupled
+so that the $Y_i$s change continuously.
+It starts when $\E[Y_i^3] = \infty$
+but $\E[Y_i^{3-\varepsilon}] < \infty$ for all $\varepsilon > 0$
+(this meets the conditions of Theorem~\ref{RANDOMRADII}),
+and gradually reduces the number of finite moments,
+finishing when $\E[Y_i^{0.2}] = \infty$.
+
+The video after the point where $\E[Y_i^2] = \infty$
+illustrates the remark made AT SOME POINT,
+and shows that even when second moments do not exist,
+the restricted coverage model can have an interesting structure,
+with multiple discs covering large areas,
+but no single enormous disc covering most of $[0,1]^2$,
+apart from when $Y_i$ is extremely heavy-tailed.
+
+CHECK THIS IS TRUE FOR VERY LARGE NUMBERS OF POINTS;
+I CAN GENERATE SINGLE FRAMES WHEN a=2 (AND a=1)
+TO CHECK.
+
+--
+
+Remark for the paper on Johnson-Mehl:
+

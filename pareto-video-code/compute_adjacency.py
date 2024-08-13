@@ -17,6 +17,12 @@ from draw_jm import get_adjacency, colour_graph, get_ball_pixels#, assign_cells_
 
 @jit(nopython=True)
 def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
+    """
+    Not-so-optimal algorithm: if there are uncovered points it doubles the final time
+    and runs everything again.
+    Moulinec's algorithm will probably be quite a lot faster,
+    and I should implement it if I'm going to make this code available.
+    """
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
     while -1 in assignments:
@@ -96,19 +102,20 @@ def add_frame_metadata(im, a, m=1.0, panel_width = 840, font_size=20,dpi_factor=
 #     return assignments
 
 if __name__=='__main__':
-    os.system("rm -f frames/pareto-*")
+    if len(sys.argv) < 4:
+        raise Exception("Please give all the arguments: n, resolution, PARALLEL")
     fileprefix = "frames/pareto-"
-    n = 100 #20000
-    resolution = 1080
+    n = int(sys.argv[1]) # 20000
+    resolution = int(sys.argv[2])
     nframes = 276
     exponents = np.linspace(3.00,0.25,num=nframes,endpoint=True)
-    RANDOMSEED = 20240422 # Fixing a seed doesn't seem to work - is a different generator sneaking in somewhere?
+    # RANDOMSEED = 20240422 # Fixing a seed doesn't seem to work - is a different generator sneaking in somewhere?
     # If I remove the randomness from colour_graph() then the whole thing is a function of `seeds` and `U`: I could save these.
-    PARALLEL = 8
+    PARALLEL = int(sys.argv[3])
 
     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
     
-    np.random.seed(RANDOMSEED)
+    # np.random.seed(RANDOMSEED)
     print("Sampling arrival locations")
     seeds = sample_points(n)
     U = np.random.random(size=seeds.shape[0])
@@ -123,16 +130,7 @@ if __name__=='__main__':
         # print(f'a = {a:.3f} assigned!')
         graph = get_adjacency(assignments)
         return graph
-
-    # Problem: if we're making a lot of frames, then we run out of memory if we store all the assignments.
-    # Here's my (slow but memory-saving) idea:
-    # 1. Compute the adjacency graphs (involving finding the assignments for a given exponent, making the graph, then throwing away the assignments). We can store all the graphs.
-    # 2. Then take the supremum graph to get the colouring of cells.
-    # 3. Then re-compute all the assignments to draw cells - this way we don't need to store assignments.
-    #
-    # If storing all the graphs still takes up too much memory, then we can just keep a "running supremum" graph.
-    # That's harder to parallelise, but I think it can be done using a multiprocessing.Manager
-
+        
     print("Calculating adjacency structure of the cells (this is the slowest step)...")
     ## Parallel processing
     graphs = process_map(getgraphs,exponents,max_workers=PARALLEL, leave=False)
@@ -140,51 +138,15 @@ if __name__=='__main__':
     for i in range(1,len(graphs)):
         supG.update(graphs[i])
     print(supG)
+    print("We have the adjacency graphs for each frame. Now colouring the 'all-time adjacency graph' (changing to Sagemath script)...")
+    
+    # Export colours, assignments etc.
+    np.savez('samples.npz', seeds=seeds, U=U)
+    networkx.write_adjlist(supG, 'supG.adjlist')
+    
     
     ## Not parallel, but with a running-maximum graph.
     # supG = getgraphs(exponents[0])
     # for i in trange(1,len(exponents),leave=False):
         # supG.update(getgraphs(exponents[i]))
     # print(supG)
-    
-    print("We have the adjacency graphs for each frame. Now colouring the 'all-time adjacency graph'...")
-    
-    colours = colour_graph(supG)
-    print(f'We have a {max(colours.values())+1}-colouring of the cells.')
-    c = colorspace.hcl_palettes().get_palette(name="SunsetDark")
-    hex_colours = c(max(colours.values())+1)
-    rgb_colours = [ImageColor.getcolor(col,"RGB") for col in hex_colours]
-    print("Drawing the frames.")
-
-    def makeframe(i):
-        a = exponents[i]
-        if a>2:
-            m = ((a-2.0)/a)**(1/a)
-        else:
-            m = 1.0
-        rates = m*U**(-1/a)
-        I = assign_cells_random_radii(seeds,rates,resolution,T=max_time)
-        data = np.empty((resolution, resolution, 3), dtype=np.uint8)
-        for x in range(resolution):
-            for y in range(resolution):
-                data[x,y,:] = rgb_colours[colours[I[x,y]]]
-        with Image.fromarray(data) as image:
-            image = add_frame_metadata(image,a)
-            # image.show()
-            image.save(fileprefix+f'{str(i).zfill(6)}.png')
-        return
-
-    process_map(makeframe, range(len(exponents)), max_workers=PARALLEL, leave=False)
-    
-    # for i in trange(len(exponents),leave=False):
-    #     a = exponents[i]
-    #     I = assignments[i]
-    #     data = np.empty((resolution, resolution, 3), dtype=np.uint8)
-    #     for x in range(resolution):
-    #         for y in range(resolution):
-    #             data[x,y,:] = rgb_colours[colours[I[x,y]]]
-    #     image = Image.fromarray(data)
-    #     image = add_frame_metadata(image,a)
-    #     # image.show()
-    #     image.save(fileprefix+f'{a:.5f}.png')
-    print("Done! Go and find your frames in the frames/ folder")
