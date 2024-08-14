@@ -6,12 +6,12 @@ from sage.graphs.graph_coloring import vertex_coloring
 if __name__=='__main__':
     supG = nx.read_adjlist('supG.adjlist')
     G = Graph(supG)
-    colour_classes = vertex_coloring(G,k=None,value_only=False) # Returns an optimal colouring
-    # ncolours = 5 # If we want to make things faster by allowing non-optimal colourings
-    # colour_classes = vertex_coloring(G, k=ncolours)
-    # while not colour_classes:
-        # ncolours += 1
-        # colour_classes = vertex_coloring(G, k=ncolours)
+    # colour_classes = vertex_coloring(G,k=None,value_only=False) # Returns an optimal colouring. Can be slow if the graph has many vertices.
+    ncolours = 7 # Things are much faster if we allow non-optimal colourings.
+    colour_classes = vertex_coloring(G, k=ncolours)
+    while not colour_classes:
+        ncolours += 1
+        colour_classes = vertex_coloring(G, k=ncolours)
     colours = {}
     for i,col_class in enumerate(colour_classes):
         for v in col_class:

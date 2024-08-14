@@ -1,6 +1,5 @@
 import numpy as np
-# from scipy.spatial import KDTree
-from numba_kdtree import KDTree # Numba-compatible version of a KDTree 
+from scipy.spatial import KDTree
 from tqdm import tqdm, trange
 from tqdm.contrib.concurrent import process_map
 import networkx
@@ -16,52 +15,61 @@ import os
 from unconstrained import sample_points
 from draw_jm import get_adjacency, colour_graph, get_ball_pixels#, assign_cells_random_radii
 
-# @jit(nopython=True)
-# def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
-#     """
-#     Not-so-optimal algorithm: if there are uncovered points it doubles the final time
-#     and runs everything again.
-#     Moulinec's algorithm will probably be quite a lot faster,
-#     and I should implement it if I'm going to make this code available.
-#     """
-#     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
-#     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
-#     while -1 in assignments:
-#         for i in range(len(rates)):
-#             xi = seeds[i]
-#             gi = rates[i]
-#             gi2 = gi*gi
-#             indices, d2s = get_ball_pixels(xi, T*gi, img_size)
-#             for k, ij_pair in enumerate(indices):
-#                 cov_time2 = d2s[k] / gi2
-#                 if cov_time2 < min_cov_times[ij_pair]:
-#                     assignments[ij_pair] = i
-#                     min_cov_times[ij_pair] = cov_time2
-#         T *= 2
-#     return assignments
-
 @jit(nopython=True)
 def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
     """
-    This is more-or-less Moulinec's algorithm.
+    Not-so-optimal algorithm: if there are uncovered points it doubles the final time
+    and runs everything again.
+    Moulinec's algorithm will probably be quite a lot faster,
+    and I should implement it if I'm going to make this code available.
     """
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
-    for i in range(len(rates)):
-        xi = seeds[i]
-        gi = rates[i]
-        gi2 = gi*gi
-        indices, d2s = get_ball_pixels(xi, T*gi, img_size)
-        for k, ij_pair in enumerate(indices):
-            cov_time2 = d2s[k] / gi2
-            if cov_time2 < min_cov_times[ij_pair]:
-                assignments[ij_pair] = i
-                min_cov_times[ij_pair] = cov_time2
-        if -1 in assignments:
-            tree = KDTree(seeds)
-            for i,j in zip(*np.where(assignments==-1)):
-                assignments[i,j] = tree.query(np.array([i,j]))[1]
+    while -1 in assignments:
+        for i in range(len(rates)):
+            xi = seeds[i]
+            gi = rates[i]
+            gi2 = gi*gi
+            indices, d2s = get_ball_pixels(xi, T*gi, img_size)
+            for k, ij_pair in enumerate(indices):
+                cov_time2 = d2s[k] / gi2
+                if cov_time2 < min_cov_times[ij_pair]:
+                    assignments[ij_pair] = i
+                    min_cov_times[ij_pair] = cov_time2
+        T *= 2
     return assignments
+
+# @jit(nopython=True)
+# def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
+#     """
+#     This is more-or-less Moulinec's algorithm.
+#     It might be faster than the approach above if T is tuned correctly.
+#     But if T isn't tuned carefully, it might be much slower.
+#     """
+#     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
+#     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
+#     for i in range(len(rates)):
+#         xi = seeds[i]
+#         gi = rates[i]
+#         gi2 = gi*gi
+#         indices, d2s = get_ball_pixels(xi, T*gi, img_size)
+#         for k, ij_pair in enumerate(indices):
+#             cov_time2 = d2s[k] / gi2
+#             if cov_time2 < min_cov_times[ij_pair]:
+#                 assignments[ij_pair] = i
+#                 min_cov_times[ij_pair] = cov_time2
+#         for x,y in zip(*np.where(assignments==-1)):
+#             pos = np.array([x,y])
+#             for i in range(len(rates)):
+#                 xi = seeds[i]
+#                 gi = rates[i]
+#                 gi2 = gi*gi
+#                 d2 = np.linalg.norm( pos - xi*(img_size-1) )
+#                 cov_time2 = d2 / gi2
+#                 if cov_time2 < min_cov_times[x,y]:
+#                     assignments[x,y] = i
+#                     min_cov_times[x,y] = cov_time2
+#     return assignments
 
 def create_latex(a,outname,dpi_factor=1.35):
     if os.path.isfile(f'latex/{outname}.png'):

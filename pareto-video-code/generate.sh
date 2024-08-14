@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Config. Only these three things should change (and I don't really plan to change the resolution):
-n=5000
+n=1000
 resolution=1080
 PARALLEL=16
 
@@ -13,6 +13,7 @@ python3 finish_video.py $n $resolution $PARALLEL
 
 echo "Generating video now"
 
-ffmpeg -framerate 25 -loglevel 8 -pattern_type glob -i 'frames/pareto-*.png' -c:v libx264 PARETO-VIDEO.mp4
+timestamp=$(date "%Y%m%d-%H%M")
+ffmpeg -framerate 25 -loglevel 8 -pattern_type glob -i 'frames/pareto-*.png' -c:v libx264 "PARETO-VIDEO($timestamp).mp4"
 
 echo "The video is done!"
