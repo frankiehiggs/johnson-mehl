@@ -32,6 +32,7 @@ if __name__=='__main__':
     with np.load('samples.npz') as data:
         seeds = data['seeds']
         U = data['U']
+        dists = data['dists']
     # # If we coloured the graph using Sagemath:
     # def keystoint(x):
         # return {int(k):v for k, v in x} # Convert keys from str to int.
@@ -40,7 +41,7 @@ if __name__=='__main__':
     # # If we will use a greedy algorithm in this script:
     supG = networkx.read_adjlist('supG.adjlist')
     colours = colour_graph(supG)
-    
+    colours = {int(k):colours[k] for k in colours}
     # Import colours, assignments etc.
     print(f'We have a {max(colours.values())+1}-colouring of the cells.')
     c = colorspace.hcl_palettes().get_palette(name="SunsetDark")

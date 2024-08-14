@@ -29,7 +29,6 @@ def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
     while -1 in assignments:
         # if attempts > 0:
             # print(f'Attempt {attempts}')
-        attempts += 1
         for i in range(len(rates)):
             if attempts > 0 and overtaken[i] < 0.5*T: # i.e. if there are no new pixels to check in this ball
                 continue
@@ -43,6 +42,7 @@ def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
                     assignments[ij_pair] = i
                     min_cov_times[ij_pair] = cov_time2
         T *= 2
+        attempts += 1
     return assignments
 
 # @jit(nopython=True)
@@ -206,7 +206,7 @@ if __name__=='__main__':
     print("We have the adjacency graphs for each frame. Now colouring the 'all-time adjacency graph' (changing to Sagemath script)...")
     
     # Export colours, assignments etc.
-    np.savez('samples.npz', seeds=seeds, U=U)
+    np.savez('samples.npz', seeds=seeds, U=U, dists=dists)
     networkx.write_adjlist(supG, 'supG.adjlist') # We can send this to a Sagemath script if we want an optimal colouring (and are very patient)
     
     ## Not parallel, but with a running-maximum graph.
