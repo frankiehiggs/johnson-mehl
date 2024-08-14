@@ -32,10 +32,14 @@ if __name__=='__main__':
     with np.load('samples.npz') as data:
         seeds = data['seeds']
         U = data['U']
-    def keystoint(x):
-        return {int(k):v for k, v in x} # Convert keys from str to int.
-    with open('colouring.json','r') as colfile:
-        colours = json.load(colfile,object_pairs_hook=keystoint)
+    # # If we coloured the graph using Sagemath:
+    # def keystoint(x):
+        # return {int(k):v for k, v in x} # Convert keys from str to int.
+    # with open('colouring.json','r') as colfile:
+        # colours = json.load(colfile,object_pairs_hook=keystoint)
+    # # If we will use a greedy algorithm in this script:
+    supG = networkx.read_adjlist('supG.adjlist')
+    colours = colour_graph(supG)
     
     # Import colours, assignments etc.
     print(f'We have a {max(colours.values())+1}-colouring of the cells.')
@@ -46,14 +50,22 @@ if __name__=='__main__':
 
     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
 
+    fastest_index = np.argmin(U)
+    fastest_seed = seeds[fastest_index]
     def makeframe(i):
         a = exponents[i]
-        if a>2:
-            m = ((a-2.0)/a)**(1/a)
-        else:
-            m = 1.0
-        rates = m*U**(-1/a)
-        I = assign_cells_random_radii(seeds,rates,resolution,T=max_time)
+        rates = U**(-1/a)
+        # fastest_rate = rates[fastest_index]
+        # overtaken = np.empty(len(rates))
+        # for i,speed in enumerate(rates):
+            # if i == fastest_index:
+                # overtaken[i] = np.inf
+                # continue
+            # else:
+                # d = np.linalg.norm(fastest_seed - seeds[i])
+                # overtaken[i] = d / (fastest_rate - rates[i])
+        overtaken = get_overtake_times(rates,dists,fastest_index)
+        I = assign_cells_random_radii(seeds,rates,overtaken,resolution,T=max_time)
         data = np.empty((resolution, resolution, 3), dtype=np.uint8)
         for x in range(resolution):
             for y in range(resolution):
