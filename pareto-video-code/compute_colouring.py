@@ -16,6 +16,9 @@ if __name__=='__main__':
     for i,col_class in enumerate(colour_classes):
         for v in col_class:
             colours[v] = i
-
-with open('colouring.json','w') as colfile:
-    json.dump(colours,colfile)
+    
+    with open('colouring.json','w') as colfile:
+        json.dump(colours,colfile)
+        
+    # Unless we really want an optimal colouring,
+    # I may just replace all this with a greedy algorithm.

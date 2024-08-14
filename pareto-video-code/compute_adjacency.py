@@ -16,7 +16,7 @@ from unconstrained import sample_points
 from draw_jm import get_adjacency, colour_graph, get_ball_pixels#, assign_cells_random_radii
 
 @jit(nopython=True)
-def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
+def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
     """
     Not-so-optimal algorithm: if there are uncovered points it doubles the final time
     and runs everything again.
@@ -25,12 +25,18 @@ def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
     """
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
+    attempts = 0
     while -1 in assignments:
+        # if attempts > 0:
+            # print(f'Attempt {attempts}')
+        attempts += 1
         for i in range(len(rates)):
+            if attempts > 0 and overtaken[i] < 0.5*T: # i.e. if there are no new pixels to check in this ball
+                continue
             xi = seeds[i]
             gi = rates[i]
             gi2 = gi*gi
-            indices, d2s = get_ball_pixels(xi, T*gi, img_size)
+            indices, d2s = get_ball_pixels(xi, gi*min(T,overtaken[i]), img_size)
             for k, ij_pair in enumerate(indices):
                 cov_time2 = d2s[k] / gi2
                 if cov_time2 < min_cov_times[ij_pair]:
@@ -70,6 +76,18 @@ def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
 #                     assignments[x,y] = i
 #                     min_cov_times[x,y] = cov_time2
 #     return assignments
+
+@jit(nopython=True)
+def get_overtake_times(rates,dists,fastest_index):
+    overtaken = np.empty(len(rates),dtype=np.float64)
+    fastest_rate = rates[fastest_index]
+    for i,speed in enumerate(rates):
+        if i == fastest_index:
+            overtaken[i] = np.inf
+            continue
+        else:
+            overtaken[i] = dists[i] / (fastest_rate - speed)
+    return overtaken
 
 def create_latex(a,outname,dpi_factor=1.35):
     if os.path.isfile(f'latex/{outname}.png'):
@@ -151,14 +169,29 @@ if __name__=='__main__':
     print("Sampling arrival locations")
     seeds = sample_points(n)
     U = np.random.random(size=seeds.shape[0])
-
+    
+    # Idea for speeding things up:
+    # All the balls apart from the fastest one are overtaken at some time (it could be after the coverage time) by the fastest-growing ball.
+    # The time each ball is overtaken is simply d/(G_max - G), where G is that ball's rate and d is the distance between it and the fastest-growing ball.
+    # Therefore we can shrink most of the balls substantially and save a lot of time.
+    # (since most rates G will be a lot smaller than G_max, we divide the radii by something which is almost G_max).
+    # We only need to compute the distances once, since the fastest ball is always the fastest,
+    # but we do need to recompute the difference in rates for every exponent.
+    fastest_index = np.argmin(U)
+    fastest_seed = seeds[fastest_index]
+    dists = np.linalg.norm(seeds - fastest_seed, axis=1)
     def getgraphs(a):
-        if a>2:
-            m = ((a-2.0)/a)**(1/a)
-        else:
-            m = 1.0
-        rates = m*U**(-1/a) # When a is small (less than 0.2, say) this is pretty unstable.
-        assignments = assign_cells_random_radii(seeds, rates, resolution, T=max_time)
+        rates = U**(-1/a) # When a is small (less than 0.2, say) this is pretty unstable.
+        # fastest_rate = rates[fastest_index]
+        # overtaken = np.empty(len(rates))
+        # for i,speed in enumerate(rates):
+            # if i == fastest_index:
+                # overtaken[i] = np.inf
+                # continue
+            # else:
+                # overtaken[i] = dists[i] / (fastest_rate - speed)
+        overtaken = get_overtake_times(rates,dists,fastest_index)
+        assignments = assign_cells_random_radii(seeds, rates, overtaken, resolution, T=max_time)
         # print(f'a = {a:.3f} assigned!')
         graph = get_adjacency(assignments)
         return graph
@@ -174,8 +207,7 @@ if __name__=='__main__':
     
     # Export colours, assignments etc.
     np.savez('samples.npz', seeds=seeds, U=U)
-    networkx.write_adjlist(supG, 'supG.adjlist')
-    
+    networkx.write_adjlist(supG, 'supG.adjlist') # We can send this to a Sagemath script if we want an optimal colouring (and are very patient)
     
     ## Not parallel, but with a running-maximum graph.
     # supG = getgraphs(exponents[0])
