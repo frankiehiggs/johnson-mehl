@@ -22,7 +22,7 @@ if __name__=='__main__':
     if len(sys.argv) < 4:
         raise Exception("Please give all the arguments: n, resolution, PARALLEL")
     fileprefix = "frames/pareto-"
-    n = int(sys.argv[1]) # 20000
+    n = int(sys.argv[1])
     resolution = int(sys.argv[2])
     nframes = 276
     exponents = np.linspace(3.00,0.25,num=nframes,endpoint=True)
