@@ -2,13 +2,13 @@
 set -e # Stop the whole script if anything goes wrong.
 
 # Config. Only these three things should change (and I don't really plan to change the resolution):
-n=100000
+n="$1"
 resolution=1080
 PARALLEL=8
 
 # Doing stuff
 rm -f frames/pareto-*
-python3 compute_adjacency.py $n $resolution $PARALLEL
+python3 compute_adjacency.py $n $resolution
 #sage compute_colouring.py # If we've got it set up to find an optimal colouring.
 python3 finish_video.py $n $resolution $PARALLEL
 
