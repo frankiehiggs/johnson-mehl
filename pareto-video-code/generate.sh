@@ -2,7 +2,7 @@
 exit -e # Stop the whole script if anything goes wrong.
 
 # Config. Only these three things should change (and I don't really plan to change the resolution):
-n=1000
+n=100000
 resolution=1080
 PARALLEL=8
 
