@@ -1,5 +1,5 @@
 #!/bin/bash
-exit -e # Stop the whole script if anything goes wrong.
+set -e # Stop the whole script if anything goes wrong.
 
 # Config. Only these three things should change (and I don't really plan to change the resolution):
 n=100000
