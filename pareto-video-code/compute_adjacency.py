@@ -11,6 +11,7 @@ from pdf2image import convert_from_path
 from multiprocessing import Pool
 from numba import jit
 import os
+import gc
 
 from unconstrained import sample_points
 from draw_jm import get_adjacency, colour_graph, get_ball_pixels#, assign_cells_random_radii
@@ -98,10 +99,8 @@ def create_latex(a,outname,dpi_factor=1.35):
         doc.packages.append(Package('amssymb'))
         if a <= 2:
             doc.append(NoEscape(f'Currently $a = {a:.2f}$,' + ' so $$\mathbb{E}[ Y_i^{' + f'{a:.2f}' + ' - \\varepsilon} ] < \\infty,$$ but $$\mathbb{E}[ Y_i^{' + f'{a:.2f}' + '}] = \\infty.$$'))
-            doc.append(NoEscape("Since we have are no second moments, we let $m = 1$."))
         else:
             doc.append(NoEscape(f'Currently $a = {a:.2f}$,' + ' so $$\mathbb{E}[ Y_i^{' + f'{2}' + ' + \\varepsilon} ] < \\infty,$$ but $$\mathbb{E}[ Y_i^{' + f'{a:.2f}' + '}] = \\infty.$$'))
-            doc.append(NoEscape("The radii have second moments, so we choose $m = m(a)$ so that $\mathbb{E}[Y_i^2] = 1$."))
         doc.generate_pdf(f'latex/temppdf{a:.2f}',clean_tex=True)
         x1, y1, x2, y2 = 340, 350, 1140, 800
         conv = convert_from_path(f'latex/temppdf{a:.2f}.pdf',dpi=200*dpi_factor)[0]
@@ -159,9 +158,10 @@ if __name__=='__main__':
     resolution = int(sys.argv[2])
     nframes = 276
     exponents = np.linspace(3.00,0.25,num=nframes,endpoint=True)
+    batchsize = 20 # To do: make this depend on n automatically to try and keep memory usage below about 1GB.
     # RANDOMSEED = 20240422 # Fixing a seed doesn't seem to work - is a different generator sneaking in somewhere?
     # If I remove the randomness from colour_graph() then the whole thing is a function of `seeds` and `U`: I could save these.
-    PARALLEL = int(sys.argv[3])
+    PARALLEL = min(int(sys.argv[3]), batchsize)
 
     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
     
@@ -195,15 +195,26 @@ if __name__=='__main__':
         # print(f'a = {a:.3f} assigned!')
         graph = get_adjacency(assignments)
         return graph
-        
+    
     print("Calculating adjacency structure of the cells (this is the slowest step)...")
     ## Parallel processing
-    graphs = process_map(getgraphs,exponents,max_workers=PARALLEL, leave=True)
-    supG = graphs[0]
-    for i in range(1,len(graphs)):
-        supG.update(graphs[i])
+    ## To do: Batch processing. Storing all the graphs as we go along takes up too much memory: it's the main thing stopping me from increasing n past 20,000.
+    ##        so if I split exponents into several shorter lists and compute the maximum from each block, we can keep memory usage less than 1GB.
+    batches = [ range(i*batchsize,min((i+1)*batchsize,nframes)) for i in range(int((nframes-1)/batchsize)) ]
+    supG = networkx.Graph()
+    ## A bit of a problem: when child processes are spawned they copy the memory of the parent.
+    ## This means we make copies of supG, using tons of memory.
+    for batch in batches:
+        gc.collect()
+        graphs = process_map(getgraphs,exponents[batch],max_workers=PARALLEL, leave=False, total=nframes, initial=batch[0])
+        for g in graphs:
+            supG.update(g)
+    # graphs = process_map(getgraphs,exponents,max_workers=PARALLEL, leave=True)
+    # supG = graphs[0]
+    # for i in range(1,len(graphs)):
+        # supG.update(graphs[i])
     print(supG)
-    print("We have the adjacency graphs for each frame. Now colouring the 'all-time adjacency graph' (changing to Sagemath script)...")
+    print("We have the adjacency graphs for each frame. Now colouring the 'all-time adjacency graph'...")
     
     # Export colours, assignments etc.
     np.savez('samples.npz', seeds=seeds, U=U, dists=dists)
