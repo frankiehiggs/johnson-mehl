@@ -1,14 +1,12 @@
 import numpy as np
 from scipy.spatial import KDTree
 from tqdm import tqdm, trange
-from tqdm.contrib.concurrent import process_map
 import networkx
 import colorspace
 from PIL import Image, ImageColor, ImageDraw
 import sys
 from pylatex import Document, Command, Math, NoEscape, Package
 from pdf2image import convert_from_path
-from multiprocessing import Pool
 from numba import jit
 import os
 import gc
@@ -151,17 +149,14 @@ def add_frame_metadata(im, a, m=1.0, panel_width = 840, font_size=20,dpi_factor=
 #     return assignments
 
 if __name__=='__main__':
-    if len(sys.argv) < 4:
-        raise Exception("Please give all the arguments: n, resolution, PARALLEL")
+    # multiprocessing.set_start_method('spawn')
+    if len(sys.argv) < 3:
+        raise Exception("Please give both the arguments: n, resolution")
     fileprefix = "frames/pareto-"
-    n = int(sys.argv[1]) # 20000
+    n = int(sys.argv[1])
     resolution = int(sys.argv[2])
     nframes = 276
     exponents = np.linspace(3.00,0.25,num=nframes,endpoint=True)
-    batchsize = 20 # To do: make this depend on n automatically to try and keep memory usage below about 1GB.
-    # RANDOMSEED = 20240422 # Fixing a seed doesn't seem to work - is a different generator sneaking in somewhere?
-    # If I remove the randomness from colour_graph() then the whole thing is a function of `seeds` and `U`: I could save these.
-    PARALLEL = min(int(sys.argv[3]), batchsize)
 
     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
     
@@ -180,48 +175,17 @@ if __name__=='__main__':
     fastest_index = np.argmin(U)
     fastest_seed = seeds[fastest_index]
     dists = np.linalg.norm(seeds - fastest_seed, axis=1)
-    def getgraphs(a):
-        rates = U**(-1/a) # When a is small (less than 0.2, say) this is pretty unstable.
-        # fastest_rate = rates[fastest_index]
-        # overtaken = np.empty(len(rates))
-        # for i,speed in enumerate(rates):
-            # if i == fastest_index:
-                # overtaken[i] = np.inf
-                # continue
-            # else:
-                # overtaken[i] = dists[i] / (fastest_rate - speed)
+
+    supG = networkx.Graph()
+    for a in tqdm(exponents):
+        rates = U**(-1/a)
         overtaken = get_overtake_times(rates,dists,fastest_index)
         assignments = assign_cells_random_radii(seeds, rates, overtaken, resolution, T=max_time)
-        # print(f'a = {a:.3f} assigned!')
-        graph = get_adjacency(assignments)
-        return graph
+        supG.update(get_adjacency(assignments)) # Add new edges to supG
     
-    print("Calculating adjacency structure of the cells (this is the slowest step)...")
-    ## Parallel processing
-    ## To do: Batch processing. Storing all the graphs as we go along takes up too much memory: it's the main thing stopping me from increasing n past 20,000.
-    ##        so if I split exponents into several shorter lists and compute the maximum from each block, we can keep memory usage less than 1GB.
-    batches = [ range(i*batchsize,min((i+1)*batchsize,nframes)) for i in range(int((nframes-1)/batchsize)) ]
-    supG = networkx.Graph()
-    ## A bit of a problem: when child processes are spawned they copy the memory of the parent.
-    ## This means we make copies of supG, using tons of memory.
-    for batch in batches:
-        gc.collect()
-        graphs = process_map(getgraphs,exponents[batch],max_workers=PARALLEL, leave=False, total=nframes, initial=batch[0])
-        for g in graphs:
-            supG.update(g)
-    # graphs = process_map(getgraphs,exponents,max_workers=PARALLEL, leave=True)
-    # supG = graphs[0]
-    # for i in range(1,len(graphs)):
-        # supG.update(graphs[i])
     print(supG)
     print("We have the adjacency graphs for each frame. Now colouring the 'all-time adjacency graph'...")
     
     # Export colours, assignments etc.
     np.savez('samples.npz', seeds=seeds, U=U, dists=dists)
     networkx.write_adjlist(supG, 'supG.adjlist') # We can send this to a Sagemath script if we want an optimal colouring (and are very patient)
-    
-    ## Not parallel, but with a running-maximum graph.
-    # supG = getgraphs(exponents[0])
-    # for i in trange(1,len(exponents),leave=False):
-        # supG.update(getgraphs(exponents[i]))
-    # print(supG)
