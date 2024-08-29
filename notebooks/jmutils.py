@@ -72,32 +72,9 @@ def get_ball_pixels_3d(centre, radius, img_size):
     return in_ball, sq_distances
 
 @jit(nopython=True)
-def get_ball_pixels_4d_v1(centre, radius, img_size):
-    """
-    Computes a series of 3d balls along one axis.
-    """
-    in_ball = [(int(x),int(x),int(x),int(x)) for x in range(0)]
-    sq_distances = [np.float64(x) for x in range(0)]
-    if radius > 0:
-        x = centre[0]*(img_size-1)
-        r = (img_size-1)*radius
-        r2 = r*r
-        min_i = max(0, int(x-r))
-        max_i = min( img_size-1, int(x+r)+1 )
-        for i in range(min_i, max_i+1):
-            dx2 = (x-i)**2
-            projected_radius = np.sqrt( r2 - dx2 ) / (img_size - 1)
-            projected_disc,projection_sq_distances = get_ball_pixels_3d(centre[1:4],projected_radius,img_size)
-            for n,jkl in enumerate(projected_disc):
-                in_ball.append( (i,jkl[0],jkl[1],jkl[2]) )
-                sq_distances.append( dx2 + projection_sq_distances[n] )
-    return in_ball, sq_distances
-
-@jit(nopython=True)
-def get_ball_pixels_4d_v2(centre, radius, img_size):
+def get_ball_pixels_4d(centre, radius, img_size):
     """
     Computes an array of 2d balls along 2 axes.
-    May or may not be faster than v1.
     """
     in_ball = [(int(x),int(x),int(x),int(x)) for x in range(0)]
     sq_distances = [np.float64(x) for x in range(0)]
@@ -173,7 +150,7 @@ def assign_cells_random_radii_3d(seeds, rates, overtaken, img_size, T=1.0):
     return assignments, min_cov_times
 
 @jit(nopython=True)
-def assign_cells_random_radii_4d_v1(seeds, rates, overtaken, img_size, T=1.0):
+def assign_cells_random_radii_4d(seeds, rates, overtaken, img_size, T=1.0):
     min_cov_times = np.full((img_size,img_size,img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.full((img_size,img_size,img_size,img_size),-1,dtype=np.int64)
     attempts = 0
@@ -186,31 +163,7 @@ def assign_cells_random_radii_4d_v1(seeds, rates, overtaken, img_size, T=1.0):
             xi = seeds[i]
             gi = rates[i]
             gi2 = gi*gi
-            indices, d2s = get_ball_pixels_4d_v1(xi, gi*min(T,overtaken[i]), img_size)
-            for n, ijk in enumerate(indices):
-                cov_time2 = d2s[n] / gi2
-                if cov_time2 < min_cov_times[ijk]:
-                    assignments[ijk] = i
-                    min_cov_times[ijk] = cov_time2
-        T *= 2
-        attempts += 1
-    return assignments, min_cov_times
-
-@jit(nopython=True)
-def assign_cells_random_radii_4d_v2(seeds, rates, overtaken, img_size, T=1.0):
-    min_cov_times = np.full((img_size,img_size,img_size,img_size),np.inf) # running minimum coverage times
-    assignments = np.full((img_size,img_size,img_size,img_size),-1,dtype=np.int64)
-    attempts = 0
-    while -1 in assignments:
-        # if attempts > 0:
-            # print(f'Attempt {attempts}')
-        for i in range(len(rates)):
-            if attempts > 0 and overtaken[i] < 0.5*T: # i.e. if there are no new pixels to check in this ball
-                continue
-            xi = seeds[i]
-            gi = rates[i]
-            gi2 = gi*gi
-            indices, d2s = get_ball_pixels_4d_v2(xi, gi*min(T,overtaken[i]), img_size)
+            indices, d2s = get_ball_pixels_4d(xi, gi*min(T,overtaken[i]), img_size)
             for n, ijk in enumerate(indices):
                 cov_time2 = d2s[n] / gi2
                 if cov_time2 < min_cov_times[ijk]:
