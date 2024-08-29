@@ -44,6 +44,26 @@ def get_ball_pixels(centre, radius, img_size):
     return in_ball, sq_distances
 
 @jit(nopython=True)
+def get_ball_pixels_3d(centre, radius, img_size):
+    in_ball = [(int(x),int(x),int(x)) for x in range(0)]
+    sq_distances = [np.float64(x) for x in range(0)]
+    if radius > 0:
+        v = (img_size-1)*centre
+        x,y,z = v[0], v[1], v[2]
+        r = (img_size-1)*radius
+        r2 = r*r
+        min_i = max(0, int(x-r))
+        max_i = min( img_size-1, int(x+r)+1 )
+        for i in range(min_i, max_i+1):
+            dx2 = (x-i)**2
+            projected_radius = np.sqrt( r2 - dx2 ) / (img_size - 1)
+            projected_disc,projection_sq_distances = get_ball_pixels(centre[1:3],projected_radius,img_size)
+            for n,jk in enumerate(projected_disc):
+                in_ball.append( (i,jk[0],jk[1]) )
+                sq_distances.append( dx2 + projection_sq_distances[n] )
+    return in_ball, sq_distances
+
+@jit(nopython=True)
 def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
@@ -63,6 +83,30 @@ def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
                 if cov_time2 < min_cov_times[ij_pair]:
                     assignments[ij_pair] = i
                     min_cov_times[ij_pair] = cov_time2
+        T *= 2
+        attempts += 1
+    return assignments, min_cov_times
+
+@jit(nopython=True)
+def assign_cells_random_radii_3d(seeds, rates, overtaken, img_size, T=1.0):
+    min_cov_times = np.full((img_size,img_size,img_size),np.inf) # running minimum coverage times
+    assignments = np.full((img_size,img_size,img_size),-1,dtype=np.int64)
+    attempts = 0
+    while -1 in assignments:
+        # if attempts > 0:
+            # print(f'Attempt {attempts}')
+        for i in range(len(rates)):
+            if attempts > 0 and overtaken[i] < 0.5*T: # i.e. if there are no new pixels to check in this ball
+                continue
+            xi = seeds[i]
+            gi = rates[i]
+            gi2 = gi*gi
+            indices, d2s = get_ball_pixels_3d(xi, gi*min(T,overtaken[i]), img_size)
+            for n, ijk in enumerate(indices):
+                cov_time2 = d2s[n] / gi2
+                if cov_time2 < min_cov_times[ijk]:
+                    assignments[ijk] = i
+                    min_cov_times[ijk] = cov_time2
         T *= 2
         attempts += 1
     return assignments, min_cov_times
