@@ -24,8 +24,13 @@ if __name__=='__main__':
     dimension = 3
     resolution = 100
     exponents = np.linspace(0.5,3.5,31,endpoint=True)
-    distances = np.zeros_like(exponents)
-    count = 0 # To do: load count and distances from a saved file if it exists.
+    try:
+        with np.load(f"data/n{n}d{dimension}.npz") as data:
+            distances = data["distances"]
+            count = int(data["count"])
+    except:
+        distances = np.zeros_like(exponents)
+        count = 0 # To do: load count and distances from a saved file if it exists.
     if dimension == 2:
         assignment_function = assign_cells_random_radii
     elif dimension == 3:
@@ -67,4 +72,3 @@ if __name__=='__main__':
     ax.set_ylabel("average distance")
     plt.savefig(f'avg-distance-d{dimension}-n{n}.pdf')
     plt.close()
-    
