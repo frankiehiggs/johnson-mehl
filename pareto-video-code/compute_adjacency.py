@@ -161,8 +161,8 @@ if __name__=='__main__':
     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
     
     # np.random.seed(RANDOMSEED)
-    print("Sampling arrival locations")
     n = np.random.poisson(lam=n) # This line turns a binomial point process into a Poisson point process.
+    print(f"Sampling arrival locations, {n} points.")
     seeds = sample_points(n)
     U = np.random.random(size=seeds.shape[0])
     
