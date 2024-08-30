@@ -24,8 +24,13 @@ if __name__=='__main__':
     dimension = 3
     resolution = 100
     exponents = np.linspace(0.5,3.5,31,endpoint=True)
-    distances = np.zeros_like(exponents)
-    count = 0 # To do: load count and distances from a saved file if it exists.
+    try:
+        with np.load(f"data/n{n}d{dimension}.npz") as data:
+            distances = data["distances"]
+            count = int(data["count"])
+    except:
+        distances = np.zeros_like(exponents)
+        count = 0 # To do: load count and distances from a saved file if it exists.
     if dimension == 2:
         assignment_function = assign_cells_random_radii
     elif dimension == 3:
@@ -55,9 +60,9 @@ if __name__=='__main__':
         with Pool(PARALLEL) as p:
             new_distance = p.map(get_distance, exponents)
         distances += new_distance
-        count += 1 
-        if k % 10 == 0:
-            np.savez(f"data/n{n}d{dimension}.npz", distances=distances, count=count)
+        count += 1
+
+    np.savez(f"data/n{n}d{dimension}.npz", distances=distances, count=count)
 
     fig, ax = plt.subplots()
     avg_distances = distances / count
@@ -67,4 +72,3 @@ if __name__=='__main__':
     ax.set_ylabel("average distance")
     plt.savefig(f'avg-distance-d{dimension}-n{n}.pdf')
     plt.close()
-    
