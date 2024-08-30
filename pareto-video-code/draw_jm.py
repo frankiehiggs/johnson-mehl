@@ -13,6 +13,8 @@ from PIL import Image, ImageColor
 import sys
 from numba import jit
 
+from itertools import product
+
 from unconstrained import sample_points, prune_arrivals
 
 def get_arrival_times( rho, max_time=1.0, R=0 ):
@@ -36,15 +38,22 @@ def get_ball_pixels(centre, radius, img_size):
     """
     in_ball = [(int(x),int(x)) for x in range(0)] # Funny expression creates a "typed list" for Numba.
     sq_distances = [np.float64(x) for x in range(0)]
-    if radius > 0:
+    if radius == 0:
+        pass # Leave the arrays empty
+    elif radius > np.sqrt(2): # Everything is covered
+        v = (img_size-1)*centre
+        x,y = v[0], v[1]
+        for i in range(img_size):
+            for j in range(img_size):
+                in_ball.append((i,j))
+                sq_distances.append( (x-i)**2 + (y-j)**2 )
+    else:
         v = (img_size-1)*centre
         x,y = v[0], v[1]
         r = (img_size-1)*radius
         r2 = r*r
         min_i = max( 0, int(x-r) )
         max_i = min( img_size-1, int(x+r)+1 )
-        min_j = max( 0, int(y-r) )
-        max_j = min( img_size-1, int(y+r)+1 )
         in_ball = []
         sq_distances = []
         for i in range(min_i, max_i+1):
@@ -52,7 +61,7 @@ def get_ball_pixels(centre, radius, img_size):
             if dx2 > r2:
                 continue
             w = np.sqrt( r2 - dx2 )
-            for j in range(max(int(y-w),min_j), min(int(y+w)+2,max_j+1)):
+            for j in range(max(int(y-w),0), min(int(y+w)+2,img_size)):
                 d2 = dx2 + (y-j)**2
                 if d2 <= r2:
                     in_ball.append((i,j))
