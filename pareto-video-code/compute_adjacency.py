@@ -162,6 +162,7 @@ if __name__=='__main__':
     
     # np.random.seed(RANDOMSEED)
     print("Sampling arrival locations")
+    n = np.random.poisson(lam=n) # This line turns a binomial point process into a Poisson point process.
     seeds = sample_points(n)
     U = np.random.random(size=seeds.shape[0])
     
