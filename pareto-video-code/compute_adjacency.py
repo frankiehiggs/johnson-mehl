@@ -26,8 +26,8 @@ def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
     attempts = 0
     while -1 in assignments:
-        # if attempts > 0:
-            # print(f'Attempt {attempts}')
+        if attempts > 0:
+            print(f'Attempt {attempts}')
         for i in range(len(rates)):
             if attempts > 0 and overtaken[i] < 0.5*T: # i.e. if there are no new pixels to check in this ball
                 continue
