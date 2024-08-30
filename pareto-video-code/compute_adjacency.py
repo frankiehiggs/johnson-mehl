@@ -28,8 +28,6 @@ def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
     while -1 in assignments:
         if attempts > 0:
             print(f'Attempt {attempts}')
-            print(f'There are {np.count_nonzero(assignments == -1)} uncovered pixels.')
-            print(assignments == -1)
         for i in range(len(rates)):
             if attempts > 0 and overtaken[i] < 0.5*T: # i.e. if there are no new pixels to check in this ball
                 continue
@@ -158,8 +156,7 @@ if __name__=='__main__':
     n = int(sys.argv[1])
     resolution = int(sys.argv[2])
     nframes = 276
-    # exponents = np.linspace(3.00,0.25,num=nframes,endpoint=True)
-    exponents = np.linspace(0.25,3.00,num=nframes,endpoint=True)
+    exponents = np.linspace(3.00,0.25,num=nframes,endpoint=True)
 
     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
     
