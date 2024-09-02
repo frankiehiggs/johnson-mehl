@@ -12,15 +12,13 @@ import os
 import gc
 
 from unconstrained import sample_points
-from draw_jm import get_adjacency, colour_graph, get_ball_pixels#, assign_cells_random_radii
+from draw_jm import get_adjacency, colour_graph, get_ball_pixels
 
 @jit(nopython=True)
 def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
     """
     Not-so-optimal algorithm: if there are uncovered points it doubles the final time
     and runs everything again.
-    Moulinec's algorithm will probably be quite a lot faster,
-    and I should implement it if I'm going to make this code available.
     """
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
@@ -43,38 +41,6 @@ def assign_cells_random_radii(seeds, rates, overtaken, img_size, T=1.0):
         T *= 2
         attempts += 1
     return assignments
-
-# @jit(nopython=True)
-# def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
-#     """
-#     This is more-or-less Moulinec's algorithm.
-#     It might be faster than the approach above if T is tuned correctly.
-#     But if T isn't tuned carefully, it might be much slower.
-#     """
-#     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
-#     assignments = np.full((img_size,img_size),-1,dtype=np.int64)
-#     for i in range(len(rates)):
-#         xi = seeds[i]
-#         gi = rates[i]
-#         gi2 = gi*gi
-#         indices, d2s = get_ball_pixels(xi, T*gi, img_size)
-#         for k, ij_pair in enumerate(indices):
-#             cov_time2 = d2s[k] / gi2
-#             if cov_time2 < min_cov_times[ij_pair]:
-#                 assignments[ij_pair] = i
-#                 min_cov_times[ij_pair] = cov_time2
-#         for x,y in zip(*np.where(assignments==-1)):
-#             pos = np.array([x,y])
-#             for i in range(len(rates)):
-#                 xi = seeds[i]
-#                 gi = rates[i]
-#                 gi2 = gi*gi
-#                 d2 = np.linalg.norm( pos - xi*(img_size-1) )
-#                 cov_time2 = d2 / gi2
-#                 if cov_time2 < min_cov_times[x,y]:
-#                     assignments[x,y] = i
-#                     min_cov_times[x,y] = cov_time2
-#     return assignments
 
 @jit(nopython=True)
 def get_overtake_times(rates,dists,fastest_index):
@@ -102,8 +68,6 @@ def create_latex(a,outname,dpi_factor=1.35):
         doc.generate_pdf(f'latex/temppdf{a:.2f}',clean_tex=True)
         x1, y1, x2, y2 = 340, 350, 1140, 800
         conv = convert_from_path(f'latex/temppdf{a:.2f}.pdf',dpi=200*dpi_factor)[0]
-        # Does the line above cause a memory leak? Did it when I didn't have [0] at the end?
-        # I could just create the files in advance, I suppose. Maybe in a separate script.
         im = conv.crop([x1,y1,x2,y2])
         im.save(f'latex/{outname}.png')
         im.close()
@@ -125,31 +89,14 @@ def add_frame_metadata(im, a, m=1.0, panel_width = 840, font_size=20,dpi_factor=
     # Now let's write the metadata
     draw = ImageDraw.Draw(expanded_im)
     draw.text((width+0.05*panel_width,0.025*height),"Model parameters",fill="black",font_size=2.5*font_size)
-    # draw.text((width+0.05*panel_width,0.15*height),"Each ball has growth rate",font_size=font_size,fill="black")
     with Image.open('latex/yi-def.PNG') as yi_def:
         expanded_im.paste(yi_def,(int(width+0.03*panel_width),int(0.12*height)))
     create_latex(a,f'temp{a:.3f}',dpi_factor) # If the file exists it loads it, otherwise it makes it.
     with Image.open(f'latex/temp{a:.3f}.png') as moments:
         expanded_im.paste(moments,(int(width+0.03*panel_width),int(0.35*height)))
-    # draw.text((width+0.5*panel_width,0.2*height),f'a = {a:.4f}', fill="black",font_size=font_size)
-    # os.remove(f'latex/temp{a:.3f}.png')
     return expanded_im
 
-# def getassignments(a,seeds,U):
-#     n = 100
-#     resolution = 1080
-#     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
-#     if a>2:
-#         m = ((a-2.0)/a)**(1/a)
-#     else:
-#         m = 1.0
-#     rates = m*U**(-a)
-#     assignments = assign_cells_random_radii(seeds, rates, resolution, T=max_time)
-#     print(f'a = {a:.3f} finished!')
-#     return assignments
-
 if __name__=='__main__':
-    # multiprocessing.set_start_method('spawn')
     if len(sys.argv) < 3:
         raise Exception("Please give both the arguments: n, resolution")
     fileprefix = "frames/pareto-"
@@ -160,19 +107,14 @@ if __name__=='__main__':
 
     max_time = 2*np.sqrt( np.log(n) / (np.pi * n) )
     
-    # np.random.seed(RANDOMSEED)
     n = np.random.poisson(lam=n) # This line turns a binomial point process into a Poisson point process.
     print(f"Sampling arrival locations, {n} points.")
     seeds = sample_points(n)
     U = np.random.random(size=seeds.shape[0])
     
-    # Idea for speeding things up:
-    # All the balls apart from the fastest one are overtaken at some time (it could be after the coverage time) by the fastest-growing ball.
-    # The time each ball is overtaken is simply d/(G_max - G), where G is that ball's rate and d is the distance between it and the fastest-growing ball.
-    # Therefore we can shrink most of the balls substantially and save a lot of time.
-    # (since most rates G will be a lot smaller than G_max, we divide the radii by something which is almost G_max).
-    # We only need to compute the distances once, since the fastest ball is always the fastest,
-    # but we do need to recompute the difference in rates for every exponent.
+    # Many balls are overtaken by the fastest one, and stop growing.
+    # The following code lets us adjust their radii accordingly,
+    # saving us a lot of runtime by checking fewer pixels.
     fastest_index = np.argmin(U)
     fastest_seed = seeds[fastest_index]
     dists = np.linalg.norm(seeds - fastest_seed, axis=1)
