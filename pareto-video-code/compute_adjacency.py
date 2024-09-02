@@ -9,6 +9,7 @@ from pylatex import Document, Command, Math, NoEscape, Package
 from pdf2image import convert_from_path
 from numba import jit
 import os
+import json
 import gc
 
 from unconstrained import sample_points
@@ -128,7 +129,10 @@ if __name__=='__main__':
     
     print(supG)
     print("We have the adjacency graphs for each frame. Now colouring the 'all-time adjacency graph'...")
-    
+    colours = colour_graph(supG)
+    print(f'We have a {max(colours.values())+1}-colouring of the cells.')
+
     # Export colours, assignments etc.
     np.savez('samples.npz', seeds=seeds, U=U, dists=dists)
-    networkx.write_adjlist(supG, 'supG.adjlist') # We can send this to a Sagemath script if we want an optimal colouring (and are very patient)
+    with open('colouring.json','w') as colfile:
+        json.dump(colours, colfile)

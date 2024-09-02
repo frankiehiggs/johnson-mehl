@@ -25,11 +25,10 @@ if __name__=='__main__':
         seeds = data['seeds']
         U = data['U']
         dists = data['dists']
-    # Import colours, assignments etc.
-    supG = networkx.read_adjlist('supG.adjlist')
-    colours = colour_graph(supG)
-    colours = {int(k):colours[k] for k in colours}
-    print(f'We have a {max(colours.values())+1}-colouring of the cells.')
+    def keystoint(x):
+        return {int(k):v for k, v in x} # Convert keys from str to int.
+    with open('colouring.json','r') as colfile:
+        colours = json.load(colfile,object_pairs_hook=keystoint)
     c = colorspace.hcl_palettes().get_palette(name="SunsetDark")
     hex_colours = c(max(colours.values())+1)
     rgb_colours = [ImageColor.getcolor(col,"RGB") for col in hex_colours]
