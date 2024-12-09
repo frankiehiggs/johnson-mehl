@@ -66,6 +66,7 @@ def jm_diagram(colours):
     ax.set_ylabel('')
     fig.tight_layout()
     fig.savefig('jm_diagram.pdf')
+    fig.savefig('jm_diagram.eps')
     fig.savefig('jm_diagram.png')
     plt.close()
     
