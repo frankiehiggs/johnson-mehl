@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 
 from fast_jm import g, limit, chiu_limit, unconstrained_limit
 
+plt.rcParams.update({
+    "text.usetex": True
+})
+
 # def OLD_jm_diagram(colours):
     # """
     # 'colours' should be a list of four colours.
