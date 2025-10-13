@@ -20,7 +20,21 @@ def get_ball_pixels(centre, radius, img_size):
     """
     in_ball = [(int(x),int(x)) for x in range(0)] # Funny expression creates a "typed list" for Numba. # I could also use indices of pixels (i.e. flattened coordinates)
     sq_distances = [np.float64(x) for x in range(0)]
-    if radius > 0:
+    if radius == 0:
+        pass # Leave the arrays empty
+    elif radius > np.sqrt(2): # Everything is covered
+        # To do: there is surely some faster way of doing this.
+        # Maybe do the check in assign_cells and then I can
+        # avoid saving this enormous list of indices.
+        # I don't really see the advantage of computing the distances
+        # inside this function.
+        v = (img_size-1)*centre
+        x,y = v[0], v[1]
+        for i in range(img_size):
+            for j in range(img_size):
+                in_ball.append((i,j))
+                sq_distances.append( (x-i)**2 + (y-j)**2 )
+    else:
         v = (img_size-1)*centre
         x,y = v[0], v[1]
         r = (img_size-1)*radius
@@ -56,7 +70,17 @@ def get_ball_pixels_3d(centre, radius, img_size):
     """
     in_ball = [(int(x),int(x),int(x)) for x in range(0)]
     sq_distances = [np.float64(x) for x in range(0)]
-    if radius > 0:
+    if radius == 0:
+        pass # Leave the arrays empty
+    elif radius > np.sqrt(3): # Everything is covered
+        v = (img_size-1)*centre
+        x,y,z = v[0], v[1], v[2]
+        for i in range(img_size):
+            for j in range(img_size):
+                for k in range(img_size):
+                    in_ball.append((i,j,k))
+                    sq_distances.append( (x-i)**2 + (y-j)**2 + (z-k)**2 )
+    else:
         x = centre[0]*(img_size-1)
         r = (img_size-1)*radius
         r2 = r*r
@@ -78,7 +102,18 @@ def get_ball_pixels_4d(centre, radius, img_size):
     """
     in_ball = [(int(x),int(x),int(x),int(x)) for x in range(0)]
     sq_distances = [np.float64(x) for x in range(0)]
-    if radius > 0:
+    if radius == 0:
+        pass # Leave the arrays empty
+    elif radius > 2: # Everything is covered
+        v = (img_size-1)*centre
+        w,x,y,z = v[0], v[1], v[2], v[3]
+        for i in range(img_size):
+            for j in range(img_size):
+                for k in range(img_size):
+                    for l in range(img_size):
+                        in_ball.append((i,j,k,l))
+                        sq_distances.append( (w-i)**2 + (x-j)**2 + (y-k)**2 + (z-l)**2 )
+    else:
         xys, xy_d2s = get_ball_pixels(centre[0:2],radius,img_size)
         r = (img_size-1)*radius
         r2 = r*r
@@ -155,8 +190,8 @@ def assign_cells_random_radii_4d(seeds, rates, overtaken, img_size, T=1.0):
     assignments = np.full((img_size,img_size,img_size,img_size),-1,dtype=np.int64)
     attempts = 0
     while -1 in assignments:
-        # if attempts > 0:
-            # print(f'Attempt {attempts}')
+        if attempts > 0:
+            print(f'Attempt {attempts}')
         for i in range(len(rates)):
             if attempts > 0 and overtaken[i] < 0.5*T: # i.e. if there are no new pixels to check in this ball
                 continue
