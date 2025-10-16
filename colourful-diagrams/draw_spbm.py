@@ -72,7 +72,7 @@ def assign_cells( seeds, times, img_size, T=1.0 ):
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.full((img_size,img_size),-1,dtype=int) # everything uncovered is assigned to a separate class.
 
-    for i in trange(len(times)):
+    for i in range(len(times)):
         xi = seeds[i]
         ti = times[i]
         indices, d2s = get_ball_pixels(xi, T-ti, img_size)
@@ -83,7 +83,7 @@ def assign_cells( seeds, times, img_size, T=1.0 ):
                 min_cov_times[ij_pair] = cov_time
     return assignments
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def assign_cells_random_radii(seeds, rates, img_size, T=1.0):
     min_cov_times = np.full((img_size,img_size),np.inf) # running minimum coverage times
     assignments = np.empty((img_size,img_size),dtype=int)
@@ -218,6 +218,10 @@ if __name__=='__main__':
     # rho = float(sys.argv[1])
     # resolution = int(sys.argv[2])
     # jm_picture(rho, resolution)
+    # Arguments to the script: number of points,
+    # then the distribution of the radii
+    # (constant, uniform, exponential, discrete, pareto),
+    # and then numerical parameters to the distributions.
     if len(sys.argv) >= 5:
         random_radii_picture(int(sys.argv[1]), 1080, sys.argv[2], float(sys.argv[3]),float(sys.argv[4]))
     elif len(sys.argv) == 4:
