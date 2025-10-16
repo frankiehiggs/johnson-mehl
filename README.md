@@ -31,6 +31,8 @@ It can be run just by calling,
 ```
 where the number is the intensity of the point process.
 
+This video and the other diagrams below use the algorithm described by Hervé Moulinec in [A simple and fast algorithm for computing discrete Voronoi, Johnson-Mehl or Laguerre diagrams of points](https://www.sciencedirect.com/science/article/abs/pii/S0965997822000618).
+
 ---
 
 
