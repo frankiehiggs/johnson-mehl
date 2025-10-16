@@ -40,7 +40,7 @@ This video and the other diagrams below use the algorithm described by Hervé Mo
 
 The code in here wasn't used in the paper, but it produces very attractive tessellations from the spherical Poisson Boolean model (SPBM) with random radii, or the Johnson-Mehl model.
 
-The user can choose various distributions for the radii in the SPBM, either a constant, uniform on $[0,1]$, exponential, discrete on a set $\{a,b\}$, or Pareto distributed.
+The user can choose various distributions for the radii in the SPBM, either a constant, uniform on $[0,1]$, exponential, discrete $p \delta_a + (1-p)\delta_b$, or Pareto distributed.
 
 For example:
 ```
